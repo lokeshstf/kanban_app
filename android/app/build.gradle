@@ -19,6 +19,9 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+            // Optionally, add proguard if needed
+            // minifyEnabled true
+            // proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -26,3 +29,5 @@ android {
 flutter {
     source "../.."
 }
+
+// ✅ REMOVE any old `apply from:` lines referencing flutter.gradle
