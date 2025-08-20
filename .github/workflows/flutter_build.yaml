@@ -31,10 +31,10 @@ jobs:
       - name: Run tests
         run: flutter test || true
 
-      - name: Build APK
+      - name: Build release APK
         run: flutter build apk --release
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v3
         with:
           name: release-apk
