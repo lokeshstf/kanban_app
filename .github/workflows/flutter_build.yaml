@@ -13,34 +13,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Install Flutter (you can switch stable → beta here)
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable   # change to "beta" if you want beta channel
-          flutter-version: 3.24.0 # optional, locks version
+          channel: stable
+          flutter-version: 3.24.0
 
-      # Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # Analyze code
       - name: Analyze
         run: flutter analyze
 
-      # Run tests (optional, skip if you don’t have tests)
       - name: Run tests
         run: flutter test || true
 
-      # Build release APK
       - name: Build APK
         run: flutter build apk --release
 
-      # Upload APK as artifact
       - name: Upload APK
         uses: actions/upload-artifact@v3
         with:
