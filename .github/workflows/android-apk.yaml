@@ -1,0 +1,79 @@
+name: Android APKs
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  # Change this to your domain to customize the app id (e.g. com.yourname)
+  ORG_ID: com.example
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.22.2"
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      # Generate android/ if missing so repo stays minimal
+      - name: Ensure Android/iOS folders exist
+        run: |
+          if [ ! -d "android" ]; then
+            flutter create --org "$ORG_ID" .
+          fi
+
+      # Optional Release signing (Play-Store ready)
+      # Add these secrets to the repo to enable:
+      # ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+      - name: Prepare signing (optional)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          cat > android/key.properties << 'EOF'
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=release.keystore
+          EOF
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      # If signing secrets present, inject signing config into Gradle file
+      - name: Patch Gradle for signing (optional)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          FILE=android/app/build.gradle
+          if ! grep -q "signingConfigs" "$FILE"; then
+            # Insert signing config under android { ... }
+            awk '
+              /android {/{print; print "    def keystoreProperties = new Properties()\n    def keystorePropertiesFile = rootProject.file(\"key.properties\")\n    if (keystorePropertiesFile.exists()) {\n        keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n    }"; next}1
+            ' "$FILE" > tmp && mv tmp "$FILE"
+
+            awk '
+              /buildTypes {/{print; print "        signingConfigs {\n            release {\n                if (keystoreProperties[\"storeFile\"]) {\n                    storeFile file(keystoreProperties[\"storeFile\"])\n                    storePassword keystoreProperties[\"storePassword\"]\n                    keyAlias keystoreProperties[\"keyAlias\"]\n                    keyPassword keystoreProperties[\"keyPassword\"]\n                }\n            }\n        }"; next}1
+            ' "$FILE" > tmp && mv tmp "$FILE"
+
+            awk '
+              /release {/{print; print "            signingConfig signingConfigs.release"; next}1
+            ' "$FILE" > tmp && mv tmp "$FILE"
+          fi
+
+      - name: Build Debug APK (installable)
+        run:
